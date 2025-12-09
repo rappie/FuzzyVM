@@ -31,6 +31,7 @@ var callStrategies = []Strategy{
 	new(createCallGenerator),
 	new(randomCallGenerator),
 	new(callPrecompileGenerator),
+	new(interestingCallGenerator),
 }
 
 type createCallRNGGenerator struct{}
@@ -129,4 +130,39 @@ func (*callPrecompileGenerator) Importance() int {
 
 func (*callPrecompileGenerator) String() string {
 	return "callPrecompileGenerator"
+}
+
+type interestingCallGenerator struct{}
+
+func (*interestingCallGenerator) Execute(env Environment) {
+	// CALL stack order (bottom to top): retSize, retOffset, argsSize, argsOffset, value, addr, gas
+	// We push in reverse order so gas ends up on top
+
+	// Return data location
+	outOffset := uint32(env.f.MemInt().Uint64())
+	outSize := uint32(env.f.MemInt().Uint64())
+	env.p.Push(outSize).Push(outOffset)
+
+	// Input data location
+	inOffset := uint32(env.f.MemInt().Uint64())
+	inSize := uint32(env.f.MemInt().Uint64())
+	env.p.Push(inSize).Push(inOffset)
+
+	// Value (using balance-based strategies)
+	pushValue(env.p, env.f)
+
+	// Address (uses interesting addresses from Context)
+	env.p.Push(env.f.Address())
+
+	// Gas and call
+	env.p.Op(vm.GAS)
+	env.p.Op(vm.CALL)
+}
+
+func (*interestingCallGenerator) Importance() int {
+	return 5
+}
+
+func (*interestingCallGenerator) String() string {
+	return "interestingCallGenerator"
 }
