@@ -64,9 +64,34 @@ func makeMap(strats []Strategy) map[byte]Strategy {
 	return m
 }
 
+// pushValue emits opcodes that push a value onto the stack for CREATE/CALL.
+// Uses different strategies based on filler byte.
+func pushValue(p *program.Program, f *filler.Filler) {
+	b := f.Byte()
+	switch {
+	case b < 64: // 25% - zero
+		p.Push(0)
+	case b < 115: // 20% - balance/2
+		p.Op(vm.SELFBALANCE)
+		p.Push(2)
+		p.Op(vm.DIV)
+	case b < 166: // 20% - balance*2
+		p.Op(vm.SELFBALANCE)
+		p.Push(2)
+		p.Op(vm.MUL)
+	case b < 204: // 15% - balance
+		p.Op(vm.SELFBALANCE)
+	case b < 230: // 10% - balance+1
+		p.Op(vm.SELFBALANCE)
+		p.Push(1)
+		p.Op(vm.ADD)
+	default: // 10% - random
+		p.Push(f.ByteSlice(32))
+	}
+}
+
 func (env Environment) CreateAndCall(code []byte, isCreate2 bool, callOp vm.OpCode) {
 	var (
-		value    = 0
 		offset   = 0
 		size     = len(code)
 		salt     = 0
@@ -79,14 +104,15 @@ func (env Environment) CreateAndCall(code []byte, isCreate2 bool, callOp vm.OpCo
 		env.p.Push(salt)
 		createOp = vm.CREATE2
 	}
-	env.p.Push(size).Push(offset).Push(value).Op(createOp)
-	// If there happen to be a zero on the stack, it doesn't matter, we're
-	// not sending any value anyway
+	env.p.Push(size).Push(offset)
+	pushValue(env.p, env.f)
+	env.p.Op(createOp)
+	// Call the created contract
 	env.p.Push(0).Push(0) // mem out
 	env.p.Push(0).Push(0) // mem in
 	addrOffset := vm.OpCode(vm.DUP5)
 	if callOp == vm.CALL || callOp == vm.CALLCODE {
-		env.p.Push(0) // value
+		pushValue(env.p, env.f)
 		addrOffset = vm.DUP6
 	}
 	env.p.Op(addrOffset) // address (from create-op above)
