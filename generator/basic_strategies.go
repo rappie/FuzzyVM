@@ -36,6 +36,7 @@ var basicStrategies = []Strategy{
 	new(sloadGenerator),
 	new(tloadGenerator),
 	new(blobhashGenerator),
+	new(selfdestructGenerator),
 }
 
 type opcodeGenerator struct{}
@@ -290,4 +291,20 @@ func (*blobhashGenerator) Importance() int {
 
 func (*blobhashGenerator) String() string {
 	return "blobhashGenerator"
+}
+
+type selfdestructGenerator struct{}
+
+func (*selfdestructGenerator) Execute(env Environment) {
+	addr := env.f.ByteSlice(20)
+	env.p.Push(addr)
+	env.p.Op(vm.SELFDESTRUCT)
+}
+
+func (*selfdestructGenerator) Importance() int {
+	return 1
+}
+
+func (*selfdestructGenerator) String() string {
+	return "selfdestructGenerator"
 }
