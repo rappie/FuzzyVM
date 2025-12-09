@@ -20,13 +20,21 @@ package filler
 import (
 	"encoding/binary"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
+
+// Context provides optional data for the filler.
+type Context struct {
+	InterestingAddresses []common.Address
+}
 
 // Filler can be used to fill objects from a data source.
 type Filler struct {
 	data    []byte
 	pointer int
 	usedUp  bool
+	Ctx     *Context
 }
 
 // NewFiller creates a new Filler.
@@ -181,4 +189,14 @@ func (f *Filler) Reset() {
 // UsedUp returns wether all bytes from the source have been used.
 func (f *Filler) UsedUp() bool {
 	return f.usedUp
+}
+
+// Address returns an address, either from InterestingAddresses (50% chance if available)
+// or a random 20-byte address.
+func (f *Filler) Address() []byte {
+	if f.Bool() && f.Ctx != nil && len(f.Ctx.InterestingAddresses) > 0 {
+		idx := int(f.Byte()) % len(f.Ctx.InterestingAddresses)
+		return f.Ctx.InterestingAddresses[idx].Bytes()
+	}
+	return f.ByteSlice(20)
 }

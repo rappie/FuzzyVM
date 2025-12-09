@@ -296,8 +296,7 @@ func (*blobhashGenerator) String() string {
 type selfdestructGenerator struct{}
 
 func (*selfdestructGenerator) Execute(env Environment) {
-	addr := env.f.ByteSlice(20)
-	env.p.Push(addr)
+	env.p.Push(env.f.Address())
 	env.p.Op(vm.SELFDESTRUCT)
 }
 
